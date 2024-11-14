@@ -1,0 +1,11 @@
+Valid_interaction_pairs	1683425
+Valid_interaction_pairs_FF	1205
+Valid_interaction_pairs_RR	1368
+Valid_interaction_pairs_RF	7880
+Valid_interaction_pairs_FR	1672972
+Dangling_end_pairs	6808232
+Religation_pairs	3427678
+Self_Cycle_pairs	45
+Single-end_pairs	0
+Filtered_pairs	0
+Dumped_pairs	299

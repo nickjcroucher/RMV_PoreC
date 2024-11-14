@@ -1,0 +1,10 @@
+Total_pairs_processed	46465152	100.0
+Unmapped_pairs	2747900	5.914
+Low_qual_pairs	2229436	4.798
+Unique_paired_alignments	40942175	88.114
+Multiple_pairs_alignments	0	0.0
+Pairs_with_singleton	545641	1.174
+Low_qual_singleton	0	0.0
+Unique_singleton_alignments	0	0.0
+Multiple_singleton_alignments	0	0.0
+Reported_pairs	40942175	88.114
