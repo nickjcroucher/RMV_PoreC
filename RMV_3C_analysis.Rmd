@@ -146,6 +146,10 @@ pos_dodge <- function(df, width, n = NULL) {
 # multiHiCcompare: https://bioconductor.org/packages/release/bioc/vignettes/multiHiCcompare/inst/doc/multiHiCcompare.html
 # HiCexperiment: https://bioconductor.org/books/devel/OHCA/pages/matrix-centric.html
 
+zoom_cm <- function(x,res) {
+  import(x@fileName, format = 'cool', resolution = res)
+}
+
 get_cm <- function(in_mapping, exclude = NA) {
   in.interaction <- interactions(in_mapping)
   cm_output <- inflate(in.interaction,in.interaction@regions,in.interaction@regions,fill=in.interaction@elementMetadata$count)
@@ -282,7 +286,7 @@ plot_projection <- function(mat,
 
 mcool2bedpe <- function(mcool, max_distance = NA, res = 1000) {
   
-  in.interactions <- interactions(zoom(mcool,res))
+  in.interactions <- interactions(zoom_cm(mcool,res))
   
   if (!is.na(max_distance)) {
     index_vals <- abs(in.interactions@anchor1 - in.interactions@anchor2) <= max_distance
@@ -354,11 +358,11 @@ add_distance_classification <- function(input_df, resolution = NULL) {
 # palettes
 distance_palette <-
   c(
-    "<12.5 kb" = "turquoise1",
-    "12.5-25 kb" = "turquoise2",
-    "25-50 kb" = "turquoise3",
+    "<12.5 kb" = "cyan",
+    "12.5-25 kb" = "turquoise3",
+    "25-50 kb" = "blue",
 #    "50-100 kb" = "turquoise3",
-    ">50 kb" = "turquoise4"
+    ">50 kb" = "navy"
   )
 
 condition_labels <- c(
@@ -710,7 +714,7 @@ plot_read_orientations(porec_read_orientations_df,c(lores_value,hires_value))
 
 generate_cm_plot <- function(index,matrix_list = NULL, res = NULL, df = NULL) {
   
-  HiContacts::plotMatrix(zoom(matrix_list[[index]],res),
+  HiContacts::plotMatrix(zoom_cm(matrix_list[[index]],res),
                          caption = FALSE) +
     xlab('') +
     ggtitle(parse(text = df$Label[index])) +
@@ -964,7 +968,7 @@ hires_interactions_bedpe_df <-
            dplyr::mutate(Distance = start2-start1) %>%
            dplyr::mutate(Genotype = dplyr::if_else(grepl("RMV7",Variant),"RMV7","RMV8"))
 
-hl_distance_cutoff <- 12500
+hl_distance_cutoff <- 7500
 hl_interation_cutoff <- 50
 
 (interaction_distances_plot <-
@@ -976,7 +980,9 @@ hl_interation_cutoff <- 50
     geom_point(position = position_jitter(),
                alpha = 0.1) +
     scale_y_continuous(trans = "log10") +
-    xlim(c(5000,500000)) +
+    scale_x_continuous(trans = "log10",
+                       limits = c(5000,500000)) +
+    #xlim(c(5000,500000)) +
     facet_grid(Method~Variant,
               labeller = label_parsed,
               scales = 'free_y') +
@@ -1019,9 +1025,16 @@ hl_interation_cutoff <- 50
   facet_grid(Method~Variant,
               labeller = label_parsed,
               scales = 'free_y') +
+  labs(color = "Interaction type") +
   theme_bw() +
-  theme(strip.background = element_blank())
+  theme(strip.background = element_blank(),
+        legend.position = "bottom")
 )
+
+ggsave("./supplementary_figures/short_range_high_interactions.png",
+       height = 8,
+       width = 8,
+       dpi = 600)
 
 ```
 
@@ -1144,13 +1157,13 @@ method_summary_plot <-
 cowplot::plot_grid(
   plotlist = list(
     method_summary_plot,
-    interaction_summary_plot,
     interaction_distances_plot,
+    interaction_summary_plot,
     origin_interaction_summary_plot
   ),
   ncol = 1,
   labels = "AUTO",
-  rel_heights = c(0.2,0.35,0.3,0.3)
+  rel_heights = c(0.2,0.3,0.35,0.3)
 )
 
 ggsave("./figures/Figure_1.png",
@@ -1167,12 +1180,12 @@ ggsave("./figures/Figure_1.png",
 
 gwas_locus_size <- lores_value
 
-rmv7.data.com <- mergeCMs(get_cm(zoom(porec_rmv_mapping_list[[1]],res=gwas_locus_size), exclude = rmv7_pv_locus),
-                         get_cm(zoom(porec_rmv_mapping_list[[2]],res=gwas_locus_size), exclude = rmv7_pv_locus),
-                         get_cm(zoom(porec_rmv_mapping_list[[3]],res=gwas_locus_size), exclude = rmv7_pv_locus),
-                         get_cm(zoom(porec_rmv_mapping_list[[4]],res=gwas_locus_size), exclude = rmv7_pv_locus),
-                         get_cm(zoom(porec_rmv_mapping_list[[5]],res=gwas_locus_size), exclude = rmv7_pv_locus),
-                         get_cm(zoom(porec_rmv_mapping_list[[6]],res=gwas_locus_size), exclude = rmv7_pv_locus)
+rmv7.data.com <- mergeCMs(get_cm(zoom_cm(porec_rmv_mapping_list[[1]],res=gwas_locus_size), exclude = rmv7_pv_locus),
+                         get_cm(zoom_cm(porec_rmv_mapping_list[[2]],res=gwas_locus_size), exclude = rmv7_pv_locus),
+                         get_cm(zoom_cm(porec_rmv_mapping_list[[3]],res=gwas_locus_size), exclude = rmv7_pv_locus),
+                         get_cm(zoom_cm(porec_rmv_mapping_list[[4]],res=gwas_locus_size), exclude = rmv7_pv_locus),
+                         get_cm(zoom_cm(porec_rmv_mapping_list[[5]],res=gwas_locus_size), exclude = rmv7_pv_locus),
+                         get_cm(zoom_cm(porec_rmv_mapping_list[[6]],res=gwas_locus_size), exclude = rmv7_pv_locus)
                      )
 
 make_diffhic_histogram <- function(comb_data,tval) {
@@ -1392,11 +1405,11 @@ ggsave("./supplementary_figures/RMV7_PoreC_diffHiC.png",
 # works: 6400/-3
 
 rmv7.hic.data.com <- mergeCMs(#get_cm(zoom(hic_rmv_mapping_list[[1]],res=gwas_locus_size), exclude = rmv7_pv_locus),
-                         get_cm(zoom(hic_rmv_mapping_list[[2]],res=gwas_locus_size), exclude = rmv7_pv_locus),
-                         get_cm(zoom(hic_rmv_mapping_list[[3]],res=gwas_locus_size), exclude = rmv7_pv_locus),
-                         get_cm(zoom(hic_rmv_mapping_list[[4]],res=gwas_locus_size), exclude = rmv7_pv_locus),
-                         get_cm(zoom(hic_rmv_mapping_list[[5]],res=gwas_locus_size), exclude = rmv7_pv_locus),
-                         get_cm(zoom(hic_rmv_mapping_list[[6]],res=gwas_locus_size), exclude = rmv7_pv_locus)
+                         get_cm(zoom_cm(hic_rmv_mapping_list[[2]],res=gwas_locus_size), exclude = rmv7_pv_locus),
+                         get_cm(zoom_cm(hic_rmv_mapping_list[[3]],res=gwas_locus_size), exclude = rmv7_pv_locus),
+                         get_cm(zoom_cm(hic_rmv_mapping_list[[4]],res=gwas_locus_size), exclude = rmv7_pv_locus),
+                         get_cm(zoom_cm(hic_rmv_mapping_list[[5]],res=gwas_locus_size), exclude = rmv7_pv_locus),
+                         get_cm(zoom_cm(hic_rmv_mapping_list[[6]],res=gwas_locus_size), exclude = rmv7_pv_locus)
                      )
 
 # View(cbind(as.data.frame(rmv7.hic.data.com@interactions),rmv7.hic.data.com@assays@data@listData$counts))
@@ -1842,12 +1855,12 @@ ggplot(rmv7_combined_manhattan_input.df,
 
 ```{r Comparison of RMV8 pore-c contact matrices with diffHic}
 
-rmv8.data.com <- mergeCMs(get_cm(zoom(porec_rmv_mapping_list[[7]],res=gwas_locus_size), exclude = rmv8_pv_locus),
-                         get_cm(zoom(porec_rmv_mapping_list[[8]],res=gwas_locus_size), exclude = rmv8_pv_locus),
-                         get_cm(zoom(porec_rmv_mapping_list[[9]],res=gwas_locus_size), exclude = rmv8_pv_locus),
-                         get_cm(zoom(porec_rmv_mapping_list[[10]],res=gwas_locus_size), exclude = rmv8_pv_locus),
-                         get_cm(zoom(porec_rmv_mapping_list[[11]],res=gwas_locus_size), exclude = rmv8_pv_locus),
-                         get_cm(zoom(porec_rmv_mapping_list[[12]],res=gwas_locus_size), exclude = rmv8_pv_locus)
+rmv8.data.com <- mergeCMs(get_cm(zoom_cm(porec_rmv_mapping_list[[7]],res=gwas_locus_size), exclude = rmv8_pv_locus),
+                         get_cm(zoom_cm(porec_rmv_mapping_list[[8]],res=gwas_locus_size), exclude = rmv8_pv_locus),
+                         get_cm(zoom_cm(porec_rmv_mapping_list[[9]],res=gwas_locus_size), exclude = rmv8_pv_locus),
+                         get_cm(zoom_cm(porec_rmv_mapping_list[[10]],res=gwas_locus_size), exclude = rmv8_pv_locus),
+                         get_cm(zoom_cm(porec_rmv_mapping_list[[11]],res=gwas_locus_size), exclude = rmv8_pv_locus),
+                         get_cm(zoom_cm(porec_rmv_mapping_list[[12]],res=gwas_locus_size), exclude = rmv8_pv_locus)
                      )
 
 rmv8.data.com.adl <- asDGEList(rmv8.data.com)
@@ -2024,12 +2037,12 @@ ggsave("./supplementary_figures/RMV8_PoreC_diffHiC.png",
 
 ```{r Comparison of pore-c contact matrices with diffHic, RMV8 hi-c}
 
-rmv8.hic.data.com <- mergeCMs(get_cm(zoom(hic_rmv_mapping_list[[7]],res=gwas_locus_size), exclude = rmv8_pv_locus),
-                         get_cm(zoom(hic_rmv_mapping_list[[8]],res=gwas_locus_size), exclude = rmv8_pv_locus),
-                         get_cm(zoom(hic_rmv_mapping_list[[9]],res=gwas_locus_size), exclude = rmv8_pv_locus),
-                         get_cm(zoom(hic_rmv_mapping_list[[10]],res=gwas_locus_size), exclude = rmv8_pv_locus),
-                         get_cm(zoom(hic_rmv_mapping_list[[11]],res=gwas_locus_size), exclude = rmv8_pv_locus),
-                         get_cm(zoom(hic_rmv_mapping_list[[12]],res=gwas_locus_size), exclude = rmv8_pv_locus)
+rmv8.hic.data.com <- mergeCMs(get_cm(zoom_cm(hic_rmv_mapping_list[[7]],res=gwas_locus_size), exclude = rmv8_pv_locus),
+                         get_cm(zoom_cm(hic_rmv_mapping_list[[8]],res=gwas_locus_size), exclude = rmv8_pv_locus),
+                         get_cm(zoom_cm(hic_rmv_mapping_list[[9]],res=gwas_locus_size), exclude = rmv8_pv_locus),
+                         get_cm(zoom_cm(hic_rmv_mapping_list[[10]],res=gwas_locus_size), exclude = rmv8_pv_locus),
+                         get_cm(zoom_cm(hic_rmv_mapping_list[[11]],res=gwas_locus_size), exclude = rmv8_pv_locus),
+                         get_cm(zoom_cm(hic_rmv_mapping_list[[12]],res=gwas_locus_size), exclude = rmv8_pv_locus)
                      )
 
 rmv8.hic.data.adl <- asDGEList(rmv8.hic.data.com)
@@ -2582,14 +2595,42 @@ total_reads <-
   dplyr::summarise(Total_IF = sum(IF)) %>%
   dplyr::ungroup()
 
+# very hi res
+very_hires_value <- 1000
+
+# Pore-C
+very_hires_rmv7_domi_porec_bedpe <- make_combined_bedpe(porec_rmv_mapping_list[c(1,2,3)], res = very_hires_value)
+very_hires_rmv7_rare_porec_bedpe <- make_combined_bedpe(porec_rmv_mapping_list[c(4,5,6)], res = very_hires_value)
+very_hires_rmv8_domi_porec_bedpe <- make_combined_bedpe(porec_rmv_mapping_list[c(7,8,9)], res = very_hires_value)
+very_hires_rmv8_rare_porec_bedpe <- make_combined_bedpe(porec_rmv_mapping_list[c(10,11,12)], res = very_hires_value)
+
+# Hi-C
+very_hires_rmv7_domi_hic_bedpe <- make_combined_bedpe(hic_rmv_mapping_list[c(1,2,3)], res = very_hires_value)
+very_hires_rmv7_rare_hic_bedpe <- make_combined_bedpe(hic_rmv_mapping_list[c(4,5,6)], res = very_hires_value)
+very_hires_rmv8_domi_hic_bedpe <- make_combined_bedpe(hic_rmv_mapping_list[c(7,8,9)], res = very_hires_value)
+very_hires_rmv8_rare_hic_bedpe <- make_combined_bedpe(hic_rmv_mapping_list[c(10,11,12)], res = very_hires_value)
+
+# Hi-res interactions df
+very_hires_interactions_bedpe_df <-
+  make_interactions_bedpe(very_hires_rmv7_domi_porec_bedpe,
+                                    very_hires_rmv7_rare_porec_bedpe,
+                                    very_hires_rmv8_domi_porec_bedpe,
+                                    very_hires_rmv8_rare_porec_bedpe,
+                                    very_hires_rmv7_domi_hic_bedpe,
+                                    very_hires_rmv7_rare_hic_bedpe,
+                                    very_hires_rmv8_domi_hic_bedpe,
+                                    very_hires_rmv8_rare_hic_bedpe) %>%
+           dplyr::mutate(Distance = start2-start1) %>%
+           dplyr::mutate(Genotype = dplyr::if_else(grepl("RMV7",Variant),"RMV7","RMV8"))
+
 prci_contacts_df <-
-  dplyr::bind_rows(hires_interactions_bedpe_df %>%
+  dplyr::bind_rows(very_hires_interactions_bedpe_df %>%
               dplyr::left_join(prci_df, by = c("Genotype")) %>% 
               dplyr::filter(start1 >= start-10000 &
                             end1 <= end+10000 &
                             start2 >= start-10000 &
                             end2 <= end+10000),
-            hires_interactions_bedpe_df %>%
+            very_hires_interactions_bedpe_df %>%
               dplyr::left_join(prci_df, by = c("Genotype")) %>% 
               dplyr::filter(start1 >= start-10000 &
                             end1 <= end+10000 &
@@ -2751,36 +2792,7 @@ nonprci_contacts_df <-
 
 ```{r Check for sample swaps}
 
-# very hi res
-very_hires_value <- 1000
-
-# Pore-C
-very_hires_rmv7_domi_porec_bedpe <- make_combined_bedpe(porec_rmv_mapping_list[c(1,2,3)], res = very_hires_value)
-very_hires_rmv7_rare_porec_bedpe <- make_combined_bedpe(porec_rmv_mapping_list[c(4,5,6)], res = very_hires_value)
-very_hires_rmv8_domi_porec_bedpe <- make_combined_bedpe(porec_rmv_mapping_list[c(7,8,9)], res = very_hires_value)
-very_hires_rmv8_rare_porec_bedpe <- make_combined_bedpe(porec_rmv_mapping_list[c(10,11,12)], res = very_hires_value)
-
-# Hi-C
-very_hires_rmv7_domi_hic_bedpe <- make_combined_bedpe(hic_rmv_mapping_list[c(1,2,3)], res = very_hires_value)
-very_hires_rmv7_rare_hic_bedpe <- make_combined_bedpe(hic_rmv_mapping_list[c(4,5,6)], res = very_hires_value)
-very_hires_rmv8_domi_hic_bedpe <- make_combined_bedpe(hic_rmv_mapping_list[c(7,8,9)], res = very_hires_value)
-very_hires_rmv8_rare_hic_bedpe <- make_combined_bedpe(hic_rmv_mapping_list[c(10,11,12)], res = very_hires_value)
-
-# Hi-res interactions df
-very_hires_interactions_bedpe_df <-
-  make_interactions_bedpe(very_hires_rmv7_domi_porec_bedpe,
-                                    very_hires_rmv7_rare_porec_bedpe,
-                                    very_hires_rmv8_domi_porec_bedpe,
-                                    very_hires_rmv8_rare_porec_bedpe,
-                                    very_hires_rmv7_domi_hic_bedpe,
-                                    very_hires_rmv7_rare_hic_bedpe,
-                                    very_hires_rmv8_domi_hic_bedpe,
-                                    very_hires_rmv8_rare_hic_bedpe) %>%
-           dplyr::mutate(Distance = start2-start1) %>%
-           dplyr::mutate(Genotype = dplyr::if_else(grepl("RMV7",Variant),"RMV7","RMV8"))
-
-
-
+# Plot tvr locus contacts
 tvr_locus_contacts_df <-
   dplyr::bind_rows(
           very_hires_interactions_bedpe_df %>% 
@@ -2966,7 +2978,7 @@ sparse2tibble <- function(sparseM) {
     tibble::rowid_to_column(var = "X") %>%
     tidyr::pivot_longer(cols = -X, names_to = "Y", values_to = "ContactFrequency") %>%
     dplyr::mutate(Y = as.integer(gsub("V","",Y))) %>%
-    dplyr::filter(abs(X-Y) <= 25 & X >= Y)
+    dplyr::filter(abs(X-Y) <= 10 & X >= Y)
   
 }
 
@@ -2985,17 +2997,17 @@ hic.rmv8_characteristics_df <-
 rmv7_hic_cm <- 
   dplyr::bind_rows(
     dplyr::bind_rows(
-      sparse2tibble(get_cm(zoom(hic_rmv_mapping_list[[4]],matrix_resolution))),
-      sparse2tibble(get_cm(zoom(hic_rmv_mapping_list[[5]],matrix_resolution))),
-      sparse2tibble(get_cm(zoom(hic_rmv_mapping_list[[6]],matrix_resolution))),
+      sparse2tibble(get_cm(zoom_cm(hic_rmv_mapping_list[[4]],matrix_resolution))),
+      sparse2tibble(get_cm(zoom_cm(hic_rmv_mapping_list[[5]],matrix_resolution))),
+      sparse2tibble(get_cm(zoom_cm(hic_rmv_mapping_list[[6]],matrix_resolution))),
       .id = "Replicate"
     ) %>%
     dplyr::mutate(Variant = "RMV7_rare"),
     
     dplyr::bind_rows(
-      sparse2tibble(get_cm(zoom(hic_rmv_mapping_list[[1]],matrix_resolution))),
-      sparse2tibble(get_cm(zoom(hic_rmv_mapping_list[[2]],matrix_resolution))),
-      sparse2tibble(get_cm(zoom(hic_rmv_mapping_list[[3]],matrix_resolution))),
+      sparse2tibble(get_cm(zoom_cm(hic_rmv_mapping_list[[1]],matrix_resolution))),
+      sparse2tibble(get_cm(zoom_cm(hic_rmv_mapping_list[[2]],matrix_resolution))),
+      sparse2tibble(get_cm(zoom_cm(hic_rmv_mapping_list[[3]],matrix_resolution))),
       .id = "Replicate"
     ) %>%
     dplyr::mutate(Variant = "RMV7_domi")
@@ -3011,17 +3023,17 @@ rmv7_hic_cm <-
 rmv8_hic_cm <- 
   dplyr::bind_rows(
     dplyr::bind_rows(
-      sparse2tibble(get_cm(zoom(hic_rmv_mapping_list[[7]],matrix_resolution))),
-      sparse2tibble(get_cm(zoom(hic_rmv_mapping_list[[8]],matrix_resolution))),
-      sparse2tibble(get_cm(zoom(hic_rmv_mapping_list[[9]],matrix_resolution))),
+      sparse2tibble(get_cm(zoom_cm(hic_rmv_mapping_list[[7]],matrix_resolution))),
+      sparse2tibble(get_cm(zoom_cm(hic_rmv_mapping_list[[8]],matrix_resolution))),
+      sparse2tibble(get_cm(zoom_cm(hic_rmv_mapping_list[[9]],matrix_resolution))),
       .id = "Replicate"
     ) %>%
     dplyr::mutate(Variant = "RMV8_domi"),
     
     dplyr::bind_rows(
-      sparse2tibble(get_cm(zoom(hic_rmv_mapping_list[[10]],matrix_resolution))),
-      sparse2tibble(get_cm(zoom(hic_rmv_mapping_list[[11]],matrix_resolution))),
-      sparse2tibble(get_cm(zoom(hic_rmv_mapping_list[[12]],matrix_resolution))),
+      sparse2tibble(get_cm(zoom_cm(hic_rmv_mapping_list[[10]],matrix_resolution))),
+      sparse2tibble(get_cm(zoom_cm(hic_rmv_mapping_list[[11]],matrix_resolution))),
+      sparse2tibble(get_cm(zoom_cm(hic_rmv_mapping_list[[12]],matrix_resolution))),
       .id = "Replicate"
     ) %>%
     dplyr::mutate(Variant = "RMV8_rare")
@@ -3037,9 +3049,9 @@ rmv8_hic_cm <-
 
 # RMV7 annotation
 rmv7_annotation.df<-data.frame(
-  "start" = c(1792101,1601016,1268197,1218320,1347217,1409274,1631773),
-  "end" = c(1804961,1619555,1296621,1223200,1352097,1414154,1636653),
-  "Classification" = c("PRCI_uvrA","PRCI_dnaN","Tn916","rRNA","rRNA","rRNA","rRNA")
+  "start" = c(1792101,1601016,1268197,1900227,1218320,1347217,1409274,1631773),
+  "end" = c(1804961,1619555,1296621,1908812,1223200,1352097,1414154,1636653),
+  "Classification" = c("PRCI_uvrA","PRCI_dnaN","Tn916","ICE_rpsI","rRNA","rRNA","rRNA","rRNA")
 ) %>%
   dplyr::mutate(
     adjusted_start = start + 0.5*matrix_resolution,
@@ -3072,17 +3084,17 @@ porec.rmv8_characteristics_df <-
 rmv7_porec_cm <- 
   dplyr::bind_rows(
     dplyr::bind_rows(
-      sparse2tibble(get_cm(zoom(porec_rmv_mapping_list[[4]],matrix_resolution))),
-      sparse2tibble(get_cm(zoom(porec_rmv_mapping_list[[5]],matrix_resolution))),
-      sparse2tibble(get_cm(zoom(porec_rmv_mapping_list[[6]],matrix_resolution))),
+      sparse2tibble(get_cm(zoom_cm(porec_rmv_mapping_list[[4]],matrix_resolution))),
+      sparse2tibble(get_cm(zoom_cm(porec_rmv_mapping_list[[5]],matrix_resolution))),
+      sparse2tibble(get_cm(zoom_cm(porec_rmv_mapping_list[[6]],matrix_resolution))),
       .id = "Replicate"
     ) %>%
     dplyr::mutate(Variant = "RMV7_rare"),
     
     dplyr::bind_rows(
-      sparse2tibble(get_cm(zoom(porec_rmv_mapping_list[[1]],matrix_resolution))),
-      sparse2tibble(get_cm(zoom(porec_rmv_mapping_list[[2]],matrix_resolution))),
-      sparse2tibble(get_cm(zoom(porec_rmv_mapping_list[[3]],matrix_resolution))),
+      sparse2tibble(get_cm(zoom_cm(porec_rmv_mapping_list[[1]],matrix_resolution))),
+      sparse2tibble(get_cm(zoom_cm(porec_rmv_mapping_list[[2]],matrix_resolution))),
+      sparse2tibble(get_cm(zoom_cm(porec_rmv_mapping_list[[3]],matrix_resolution))),
       .id = "Replicate"
     ) %>%
     dplyr::mutate(Variant = "RMV7_domi")
@@ -3098,17 +3110,17 @@ rmv7_porec_cm <-
 rmv8_porec_cm <- 
   dplyr::bind_rows(
     dplyr::bind_rows(
-      sparse2tibble(get_cm(zoom(porec_rmv_mapping_list[[10]],matrix_resolution))),
-      sparse2tibble(get_cm(zoom(porec_rmv_mapping_list[[11]],matrix_resolution))),
-      sparse2tibble(get_cm(zoom(porec_rmv_mapping_list[[12]],matrix_resolution))),
+      sparse2tibble(get_cm(zoom_cm(porec_rmv_mapping_list[[10]],matrix_resolution))),
+      sparse2tibble(get_cm(zoom_cm(porec_rmv_mapping_list[[11]],matrix_resolution))),
+      sparse2tibble(get_cm(zoom_cm(porec_rmv_mapping_list[[12]],matrix_resolution))),
       .id = "Replicate"
     ) %>%
     dplyr::mutate(Variant = "RMV8_rare"),
     
     dplyr::bind_rows(
-      sparse2tibble(get_cm(zoom(porec_rmv_mapping_list[[7]],matrix_resolution))),
-      sparse2tibble(get_cm(zoom(porec_rmv_mapping_list[[8]],matrix_resolution))),
-      sparse2tibble(get_cm(zoom(porec_rmv_mapping_list[[9]],matrix_resolution))),
+      sparse2tibble(get_cm(zoom_cm(porec_rmv_mapping_list[[7]],matrix_resolution))),
+      sparse2tibble(get_cm(zoom_cm(porec_rmv_mapping_list[[8]],matrix_resolution))),
+      sparse2tibble(get_cm(zoom_cm(porec_rmv_mapping_list[[9]],matrix_resolution))),
       .id = "Replicate"
     ) %>%
     dplyr::mutate(Variant = "RMV8_domi")
@@ -3165,20 +3177,41 @@ re_sites_df <-
 
 process_input_df <- function(input_df, genome_length = NULL, position_of_origin = NULL , method = NULL) {
   
-  input_df %>%
-  dplyr::select(-c(start,end)) %>%
-  # Rescale for model fitting
-  dplyr::mutate(mean_GC = (GC+GC_Y)/200,
-                mean_MluCI = (MluCI+MluCI_Y)/2,
-                mean_NlaIII = (NlaIII+NlaIII_Y)/2
-                ) %>%
-  dplyr::rowwise() %>%
-  dplyr::mutate(Distance_from_origin = min(abs(position_of_origin - Position),
-                                           abs(genome_length - Position + position_of_origin),
-                                           abs(genome_length - position_of_origin + Position))/genome_length
-  ) %>%
-  dplyr::ungroup()
-  
+  distances_to_origin_df <-
+    input_df %>% 
+    dplyr::select(Position) %>% 
+    dplyr::distinct() %>% 
+    dplyr::rowwise() %>% 
+    dplyr::mutate(Distance_from_origin = min(abs(position_of_origin - Position),
+                                             abs(genome_length - Position + position_of_origin),
+                                             abs(genome_length - position_of_origin + Position))/genome_length
+    ) %>% 
+    dplyr::ungroup() %>% 
+    dplyr::mutate(Distance_from_origin = 10*Distance_from_origin)
+
+  dplyr::bind_rows(
+      input_df,
+      input_df %>% 
+        dplyr::mutate(
+          new_Position_Y = Position,
+          new_Position = Position_Y
+        ) %>% 
+        dplyr::mutate(
+          Position_Y = new_Position_Y,
+          Position = new_Position
+        )
+    ) %>% 
+    dplyr::select(-c(new_Position,new_Position_Y)) %>%
+    # Rescale for model fitting
+    dplyr::mutate(mean_GC = (GC+GC_Y)/20,
+                  mean_MluCI = (MluCI+MluCI_Y)/20,
+                  mean_NlaIII = (NlaIII+NlaIII_Y)/20
+                  ) %>%
+    dplyr::left_join(
+      distances_to_origin_df,
+      by = "Position"
+    )
+    
 }
 
 # Key genome coordinates
@@ -3190,54 +3223,63 @@ rmv8_position_of_origin <- 1
 # RMV7 HiC
 annotated_rmv7_hic_df <-
   rmv7_hic_cm %>%
+    process_input_df(genome_length = rmv7_genome_length,
+                     position_of_origin = rmv7_position_of_origin,
+                     method = "Hi-C") %>%
     dplyr::left_join(rmv7_annotation.df,
                      join_by(Position>=start,Position<=end)) %>%
     dplyr::mutate(Classification = factor(
-    dplyr::if_else(is.na(Classification),"Unclassified",Classification),
-                                        levels = c("Unclassified","PRCI_uvrA","PRCI_dnaN","Tn916","rRNA"))
-    ) %>%
-    process_input_df(genome_length = rmv7_genome_length,
-                     position_of_origin = rmv7_position_of_origin,
-                     method = "Hi-C")
+    dplyr::if_else(is.na(Classification),
+                   "Unclassified",
+                   Classification),
+                   levels = c("Unclassified","PRCI_uvrA","PRCI_dnaN","Tn916","ICE_rpsI","rRNA"))
+    ) %>% 
+    dplyr::mutate(Position = factor(Position))
+
 
 # RMV7 PoreC
 annotated_rmv7_porec_df <-
   rmv7_porec_cm %>%
+    process_input_df(genome_length = rmv7_genome_length,
+                     position_of_origin = rmv7_position_of_origin,
+                     method = "Pore-C") %>%
     dplyr::left_join(rmv7_annotation.df,
                      join_by(Position>=start,Position<=end)) %>%
     dplyr::mutate(Classification = factor(
-    dplyr::if_else(is.na(Classification),"Unclassified",Classification),
-                                        levels = c("Unclassified","PRCI_uvrA","PRCI_dnaN","Tn916","rRNA"))
-    ) %>%
-    process_input_df(genome_length = rmv7_genome_length,
-                     position_of_origin = rmv7_position_of_origin,
-                     method = "Pore-C")
+    dplyr::if_else(is.na(Classification),
+                   "Unclassified",
+                   Classification),
+                   levels = c("Unclassified","PRCI_uvrA","PRCI_dnaN","Tn916","ICE_rpsI","rRNA"))
+    ) %>% 
+    dplyr::mutate(Position = factor(Position))
 
 # RMV8 HiC
 annotated_rmv8_hic_df <-
   rmv8_hic_cm %>%
+    process_input_df(genome_length = rmv8_genome_length,
+                     position_of_origin = rmv8_position_of_origin,
+                     method = "Hi-C") %>%
     dplyr::left_join(rmv8_annotation.df,
                      join_by(Position>=start,Position<=end)) %>%
     dplyr::mutate(Classification = factor(
     dplyr::if_else(is.na(Classification),"Unclassified",Classification),
                                         levels = c("Unclassified","prophage","PRCI_mal","rRNA"))
-    ) %>%
-    process_input_df(genome_length = rmv8_genome_length,
-                     position_of_origin = rmv8_position_of_origin,
-                     method = "Hi-C")
+    ) %>% 
+    dplyr::mutate(Position = factor(Position))
 
 # RMV8 PoreC
 annotated_rmv8_porec_df <-
   rmv8_porec_cm %>%
+    process_input_df(genome_length = rmv8_genome_length,
+                     position_of_origin = rmv8_position_of_origin,
+                     method = "Pore-C") %>%
     dplyr::left_join(rmv8_annotation.df,
                      join_by(Position>=start,Position<=end)) %>%
     dplyr::mutate(Classification = factor(
     dplyr::if_else(is.na(Classification),"Unclassified",Classification),
                                         levels = c("Unclassified","prophage","PRCI_mal","rRNA"))
-    ) %>%
-    process_input_df(genome_length = rmv8_genome_length,
-                     position_of_origin = rmv8_position_of_origin,
-                     method = "Por-C")
+    ) %>% 
+    dplyr::mutate(Position = factor(Position))
 
 ggplot(annotated_rmv7_hic_df,
        aes(x = ContactFrequency)) +
@@ -3379,14 +3421,29 @@ fit_glmmTMB_structure <- function(input_df) {
   
   matrix_resolution <- as.numeric(levels(input_df$Position)[2])-as.numeric(levels(input_df$Position)[1])
   
+  # # Include both upstream and downstream interactions
+  # processed_input_df <-
+  #   dplyr::bind_rows(
+  #     input_df,
+  #     input_df %>% 
+  #       dplyr::mutate(
+  #         new_Y = X,
+  #         new_X = Y
+  #       ) %>% 
+  #       dplyr::mutate(
+  #         Y = new_Y,
+  #         X = new_X
+  #       )
+  #   ) %>%
+  #   dplyr::mutate(Position = factor(Position)) %>% 
+  #   dplyr::mutate(mean_MluCI = 100*mean_MluCI/matrix_resolution,
+  #                 mean_NlaIII = 100*mean_NlaIII/matrix_resolution)
+  
   # Just fit model to RMV7 domi
   contact_density_model <-
     glmmTMB::glmmTMB(
-      ContactFrequency ~ `Distance classification` + (1-Distance_from_origin) + mean_GC + mean_MluCI + mean_NlaIII + Classification*Variant + (Variant|Position) + (1|Replicate),# + (1|Position:Variant),
-      data = input_df %>%
-                dplyr::mutate(Position = factor(Position)) %>% 
-                dplyr::mutate(mean_MluCI = 100*mean_MluCI/matrix_resolution,
-                              mean_NlaIII = 100*mean_NlaIII/matrix_resolution),
+      ContactFrequency ~ `Distance classification` + Distance_from_origin + mean_GC + mean_MluCI + mean_NlaIII + Classification*Variant + (Variant|Position) + (1|Replicate),# + (1|Position:Variant),
+      data = input_df,
       family = poisson(link = "log"),
       #dispformula = ~ `Distance classification`,
       ziformula = ~ 1,
@@ -3403,8 +3460,7 @@ fit_glmmTMB_structure <- function(input_df) {
 }
 
 # Fit models
-rmv7_hic_glmer_model <- fit_glmmTMB_structure(annotated_rmv7_hic_df %>%
-                                              dplyr::mutate(Position = factor(Position)))
+rmv7_hic_glmer_model <- fit_glmmTMB_structure(annotated_rmv7_hic_df)
 
 ```
 
@@ -3464,10 +3520,36 @@ plot_prediction(rmv7_porec_glmer_model)
 
 ```{r Plot prediction RMV8 HiC}
 
-rmv8_hic_glmer_model <- fit_glmmTMB_structure(annotated_rmv8_hic_df %>%
-                                              dplyr::mutate(Position = factor(Position)))
+rmv8_hic_glmer_model <- fit_glmmTMB_structure(annotated_rmv8_hic_df)
 
 plot_prediction(rmv8_hic_glmer_model)
+
+```
+
+``` {r Data by prophage position}
+
+ggplot(rmv8_hic_glmer_model$frame %>% dplyr::filter(as.numeric(as.character(Position)) < 75000),
+       aes(
+            #x = ContactFrequency,
+            #y = model_prediction
+            x = Position,
+            y = ContactFrequency
+           )
+       ) +
+  geom_point() +
+  facet_wrap(~`Distance classification`, scales = 'free') +
+  theme_bw()
+
+ggplot(rmv7_hic_glmer_model$frame %>% dplyr::filter(as.numeric(as.character(Position)) >= 1797101-5000 & as.numeric(as.character(Position)) <= 1799961+5000),
+       aes(
+            x = Position,
+            y = ContactFrequency
+           )
+       ) +
+  geom_point() +
+  geom_smooth() +
+  facet_wrap(~`Distance classification`, scales = 'free') +
+  theme_bw()
 
 ```
 
@@ -3697,7 +3779,7 @@ glmer_model_summary_df <-
     scale_shape_manual(values = method_shapetypes) +
     scale_linetype_manual(values = method_linetypes) +
     ylab('Coefficient estimate') +
-    xlab('Separation between loci (bp)') +
+    xlab('Separation between loci') +
     theme_bw() +
     theme(strip.background = element_blank())
 )
@@ -3776,7 +3858,7 @@ glmer_model_summary_df <-
 
 (mge_summary_plot <-
   ggplot(glmer_model_summary_df %>%
-           dplyr::filter(grepl("PRCI",term) | grepl("Tn916",term) | grepl("prophage",term)) %>%
+           dplyr::filter(grepl("PRCI",term) | grepl("Tn916",term) | grepl("prophage",term) | grepl("ICE",term)) %>%
            dplyr::mutate(Effect =
                            dplyr::if_else(grepl("Variant",term),
                                           "Relative effect\nin rare variant",
@@ -3788,11 +3870,13 @@ glmer_model_summary_df <-
                             term == "ClassificationPRCI_dnaN" ~ "PRCI[italic(dnaN)]",
                             term == "ClassificationPRCI_mal" ~ "PRCI[italic(malA)]",
                             term == "ClassificationTn916" ~ "Tn*italic(916)",
+                            term == "ClassificationICE_rpsI" ~ "ICE[italic(rpsI)]",
                             term == "Classificationprophage" ~ "phi*'RMV8'",
                             # In rare variant
                             term == "ClassificationPRCI_uvrA:VariantRMV7_rare" ~ "PRCI[italic(uvrA)]",
                             term == "ClassificationPRCI_dnaN:VariantRMV7_rare" ~ "PRCI[italic(dnaN)]",
                             term == "ClassificationTn916:VariantRMV7_rare" ~ "Tn*italic(916)",
+                            term == "ClassificationICE_rpsI:VariantRMV7_rare" ~ "ICE[italic(rpsI)]",
                             term == "Classificationprophage:VariantRMV8_rare" ~ "phi*'RMV8'",
                             term == "ClassificationPRCI_mal:VariantRMV8_rare" ~ "PRCI[italic(malA)]"
                           )
@@ -3851,7 +3935,6 @@ position_ranef_df <-
                     Genotype = "RMV8",
                     Model = "RMV8 Pore-C")
   ) %>%
-  dplyr::filter(term != "(Intercept)") %>% 
   dplyr::mutate(Position = as.integer(level)) %>%
   dplyr::mutate(Difference = estimate)
 
@@ -3904,32 +3987,75 @@ mge_detail_df <-
 
 (mge_detail_plot <-
   ggplot(mge_detail_df %>% 
+           dplyr::filter(term != "(Intercept)") %>% 
            dplyr::filter(name != "PRCI[italic(uvrA)]") %>% 
            dplyr::mutate(Position = Position/1000000),
              aes(x = Position,
                  y = Difference,
                  ymin = conf.low,
                  ymax = conf.high,
-                 #linetype = Method,
+                 shape = Method,
                  colour = Genotype)) +
         geom_hline(yintercept = 0, linetype = 1, linewidth = 0.5, alpha = 0.5) +
         facet_grid(Method~name,
                    scales = 'free',
                  labeller = label_parsed) +
-        geom_vline(aes(xintercept = reg_pos/1000000),
-                  colour = "red",
-                  linetype = 2) +
+        # geom_vline(aes(xintercept = reg_pos/1000000),
+        #           colour = "red",
+        #           linetype = 2) +
         geom_vline(aes(xintercept = start/1000000),
                   #colour = "orange",
                   linetype = 2) +
         geom_vline(aes(xintercept = end/1000000),
                   #colour = "orange",
                   linetype = 2) +
-        geom_line() +
+        geom_line(aes(linetype = Method)) +
         geom_point() +
-        geom_errorbar(width = 0.0025) +
+        geom_errorbar(width = 0.0025, show.legend = FALSE) +
+        scale_shape_manual(values = method_shapetypes) +
         xlab("Position (Mb)") +
         ylab("Intervariant difference in contact frequency") +
+        scale_colour_manual(values = genotype_palette) +
+        #scale_linetype_manual(values = method_linetypes) +
+        theme_bw() +
+        theme(strip.background = element_blank(),
+          axis.text.x = element_text(hjust = 0.5,vjust=1,angle=90))
+)
+
+```
+
+``` {r Plot absolute mapping to position}
+
+(mge_abs_val_plot <-
+  ggplot(mge_detail_df %>% 
+           dplyr::filter(term == "(Intercept)") %>% 
+           dplyr::filter(name != "PRCI[italic(uvrA)]") %>% 
+           dplyr::mutate(Position = Position/1000000),
+             aes(x = Position,
+                 y = Difference,
+                 ymin = conf.low,
+                 ymax = conf.high,
+                 shape = Method,
+                 colour = Genotype)) +
+        geom_hline(yintercept = 0, linetype = 1, linewidth = 0.5, alpha = 0.5) +
+        facet_grid(Method~name,
+                   scales = 'free',
+                 labeller = label_parsed) +
+        # geom_vline(aes(xintercept = reg_pos/1000000),
+        #           colour = "red",
+        #           linetype = 2) +
+        geom_vline(aes(xintercept = start/1000000),
+                  #colour = "orange",
+                  linetype = 2) +
+        geom_vline(aes(xintercept = end/1000000),
+                  #colour = "orange",
+                  linetype = 2) +
+        geom_line(aes(linetype = Method)) +
+        geom_point() +
+        geom_errorbar(width = 0.0025, show.legend = FALSE) +
+        scale_shape_manual(values = method_shapetypes) +
+        xlab("Position (Mb)") +
+        ylab("Locus-specific contact frequency") +
         scale_colour_manual(values = genotype_palette) +
         #scale_linetype_manual(values = method_linetypes) +
         theme_bw() +
@@ -4025,7 +4151,7 @@ correlation_output_df <-
   dplyr::bind_rows(
     lapply(1:14,analyse_correlation,df = position_ranef_df)
   ) %>%
-  dplyr::mutate(Separation = dplyr::if_else(Method == "Hi-C",Interval*5000,Interval*5000))
+  dplyr::mutate(Separation = dplyr::if_else(Method == "Hi-C",Interval*10000,Interval*10000))
 
 (lagged_correlation_plot <-
   ggplot(correlation_output_df,
@@ -4110,44 +4236,44 @@ middle_plot <-
   cowplot::plot_grid(
     plotlist = list(
       mge_summary_plot + theme(legend.position = "none"),
-      mge_detail_plot + theme(legend.position = "none")
+      mge_abs_val_plot + theme(legend.position = "none")
     ),
     nrow = 1,
     rel_widths = c(0.5,0.5),
     labels = c("D","E")
   )
 
+figure_3_legend <-
+  cowplot::get_plot_component(distance_plot + theme(legend.position = "right"), 'guide-box-right', return_all = TRUE)
+
 bottom_plot <-
   cowplot::plot_grid(
     plotlist = list(
-      lagged_correlation_plot + theme(legend.position = "none"),
-      method_intervariant_comparison_plot + theme(legend.position = "none")
+      figure_3_legend,
+      mge_detail_plot + theme(legend.position = "none")
     ),
     nrow = 1,
     rel_widths = c(0.5,0.5),
-    labels = c("F","G")
+    labels = c("","F")
   )
-
-figure_3_legend <-
-  cowplot::get_plot_component(distance_plot + theme(legend.position = "bottom"), 'guide-box-bottom', return_all = TRUE)
 
 cowplot::plot_grid(
   plotlist = list(
     upper_plot,
     middle_plot,
-    #bottom_plot,
-    figure_3_legend
+    bottom_plot
+    #figure_3_legend
   ),
 #  nrow = 4,
 #  rel_heights = c(0.3,0.4,0.3,0.05)
   nrow = 3,
-  rel_heights = c(0.3,0.4,0.05)
+  rel_heights = c(0.3,0.35,0.35)
 
 )
 
 ggsave("./figures/Figure_3.png",
-       height = 10,
-       width = 8,
+       height = 12,
+       width = 10,
        dpi = 600)
 
 ```
