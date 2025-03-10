@@ -3,8 +3,8 @@ title: '*S. pneumoniae* RMV variant 3C analysis'
 author: "Nicholas Croucher"
 date: "`r Sys.Date()`"
 output:
-  word_document: default
   html_document: default
+  word_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -1199,7 +1199,7 @@ make_diffhic_histogram <- function(comb_data,tval) {
           main = "",
           xlab = xlab_expr)
   
-  abline(v = tval, col = "red", lty = 2)
+  #abline(v = tval, col = "red", lty = 2)
   
 }
 
@@ -3718,6 +3718,57 @@ ggsave("./supplementary_figures/RMV_glmer_model_summary.png",
 
 ```
 
+## Evaluate model fits
+
+``` {r Evaluate RMV7 HiC model, fig.height = 11, fig.width = 8}
+
+plot_evaluation <- function(model) {
+  
+  top_plot <- performance::check_model(model,check = c("pp_check", "linearity", "qq", "reqq"))
+  bottom_plot <- performance::check_model(model,check = c("vif"),residual_type = "normal") #+ theme(axis.text.x = element_text(hjust = 0.5,vjust=1,angle=90))
+  
+  pdf(file = NULL)
+  eval_plot <-
+    cowplot::plot_grid(
+      plotlist = list(
+        plot(top_plot,base_size=6),
+        plot(bottom_plot,n_columns=1,base_size=6) + theme(axis.text.x = element_text(hjust = 1,vjust=0.5,angle=90))
+      ),
+      nrow = 2,
+      rel_heights = c(2,1)
+    )
+  dev.off()
+  
+  return(eval_plot)
+  
+}
+
+rmv7_hic_eval_plot <- plot_evaluation(rmv7_hic_glmer_model)
+rmv7_hic_eval_plot
+
+```
+
+``` {r Evaluate RMV7 PoreC model, fig.height = 11, fig.width = 8}
+
+rmv7_porec_eval_plot <- plot_evaluation(rmv7_porec_glmer_model)
+rmv7_porec_eval_plot
+
+```
+
+``` {r Evaluate RMV8 HiC model, fig.height = 11, fig.width = 8}
+
+rmv8_hic_eval_plot <- plot_evaluation(rmv8_hic_glmer_model)
+rmv8_hic_eval_plot
+
+```
+
+``` {r Evaluate RMV8 PoreC model, fig.height = 11, fig.width = 8}
+
+rmv8_porec_eval_plot <- plot_evaluation(rmv8_porec_glmer_model)
+rmv8_porec_eval_plot
+
+```
+
 ## Summarise model fits
 
 ```{r Effect of distance between positions}
@@ -4343,6 +4394,7 @@ process_qpcr_input_file <- function(fn, result_col = NULL, element = NULL, measu
         grepl('_csp_',Sample.Name) ~ "CSP",
         grepl('_mit_',Sample.Name) ~ "Mitomycin C",
         grepl('_MIC',Sample.Name) ~ "Mitomycin C",
+        grepl('_MMC',Sample.Name) ~ "Mitomycin C",
         TRUE ~ "No supplement"
       )
     ) %>% 
@@ -4363,7 +4415,9 @@ process_qpcr_input_file <- function(fn, result_col = NULL, element = NULL, measu
         Target.Name == "rpoA" ~ "italic(rpoA)",
         Target.Name == "malG" ~ "italic(malA)",
         Target.Name == "Int_PRCI" ~ "italic(int)",
+        Target.Name == "sugar_int" ~ "italic(int)",
         Target.Name == "RMV8_PRCI_DnaC" ~ "italic(dnaC)",
+        Target.Name == "sugar_dnaC" ~ "italic(dnaC)",
         TRUE ~ Target.Name
       )
     ) %>% 
@@ -4563,7 +4617,7 @@ rmv8_qrtpcr_df <-
       dplyr::mutate(Variant = dplyr::if_else(grepl("domi",Sample.Name),"RMV8[domi]","RMV8[rare]"))
   ) %>%
   dplyr::filter(Target.Name %in% c("italic(int)","italic(dnaC)"))
-    
+
 (expression_plot <-
    # Expression data
     ggplot(rmv8_qrtpcr_df,
@@ -4601,19 +4655,13 @@ rmv8_qrtpcr_df <-
 ```{r Plot regulation by phage and MMC}
 
 rna_induction_df <-
-  process_qpcr_input_file("./qPCR/induction_MMC_RMV8_sugar_3replicates.csv",
+  process_qpcr_input_file("./qPCR//induction_MMC_RMV8_sugar_4replicates.csv",
                           result_col = "fold_change",
                           element = "PRCI[italic(malA)]",
                           replicate = "replicate",
-                          measure = "'Relative RNA amount ('*2^{-Delta*Delta*'C'[t]}*')'") %>% 
-  dplyr::mutate(
-    Target.Name =
-      dplyr::if_else(
-        Target.Name == "sugar_dnaC",
-        "italic(dnaC)",
-        "italic(int)"
-      )
-  ) %>% 
+                          measure = "'Relative RNA amount ('*2^{-Delta*Delta*'C'[t]}*')'") %>%
+      dplyr::mutate(Variant = dplyr::if_else(grepl("domi",Sample.Name),"RMV8[domi]","RMV8[rare]")) %>% 
+      dplyr::mutate(`Biological replicate` = dplyr::if_else(is.na(`Biological replicate`),"4",`Biological replicate`)) %>% 
   dplyr::mutate(
     Condition = factor(
       Condition,
@@ -4678,12 +4726,27 @@ plot_prci <- function(df) {
 
 plot_expression <- function(df) {
   
+  df %<>%
+    dplyr::group_by(gene,Genotype) %>% 
+    dplyr::mutate(
+      min = min(tpm),
+      max = max(tpm),
+      median = median(tpm)
+    ) %>% 
+    dplyr::select(start,end,gene,min,max,median,Genotype) %>% 
+    dplyr::distinct()
+  
   ggplot(df,
            aes(x = start,
                xend = end,
-               y = tpm,
-               colour = Genotype)) +
+               y = median,
+               ymax = max,
+               ymin = min,
+               group = gene,
+               colour = Genotype,
+               fill = Genotype)) +
       geom_segment() +
+      geom_rect(aes(xmin=start,xmax=end),alpha = 0.25,linetype = 0) +
       scale_colour_manual(values = genotype_palette,
                       aesthetics = c("fill","colour")) +
       xlab('') +
