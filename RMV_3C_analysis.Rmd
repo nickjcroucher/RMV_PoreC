@@ -897,6 +897,15 @@ lores_interactions_bedpe_df <-
                                     lores_rmv8_domi_hic_bedpe,
                                     lores_rmv8_rare_hic_bedpe)
 
+rmv7_position_of_origin <- 1597872
+
+origin_df <-
+  tibble(
+    "Variant" = rep(c("RMV7[domi]","RMV7[rare]","RMV8[domi]","RMV8[rare]"),times = 2),
+    "Method" = rep(c("Hi-C","Pore-C"),each = 4),
+    "Origin" = rep(c(rmv7_position_of_origin/1000000,rmv7_position_of_origin/1000000,0,0),times = 2)
+  )
+
 (interaction_summary_plot <-
   ggplot(dplyr::bind_rows(
             lores_interactions_bedpe_df,
@@ -922,9 +931,8 @@ lores_interactions_bedpe_df <-
     geom_rect() +
     scale_fill_viridis_c(option = "magma", direction = -1,
                         transform = "log2") +
-    # scale_fill_gradient(low = "white",
-    #                      high = "red",
-    #                     transform = "log2") + #, lim = c(1,100)) +
+    geom_hline(data = origin_df, aes(yintercept = Origin), linetype = 2, colour = "black", size = 0.25) +
+    geom_vline(data = origin_df, aes(xintercept = Origin), linetype = 2, colour = "black", size = 0.25) +
     ylab("Position (Mb)") +
     guides(fill = guide_colourbar(keywidth = 10,title = "Interaction frequency")) +
     facet_grid(Method~Variant,
@@ -1065,8 +1073,6 @@ get_distance_from_origin <- function(df,var,origin,genome_length) {
     dplyr::pull()
 }
 
-rmv7_position_of_origin <- 1597872
-
 origin_position_df <-
   tibble::tibble(
     "Genotype" = c("RMV7","RMV8"),
@@ -1092,7 +1098,7 @@ interactions_by_origin_df <-
                             end2 = get_distance_from_origin(lores_interactions_bedpe_df,end2,Origin,Length)
                             )
 
-origin_range <- 50000
+origin_range <- 55000
 
 origin_interactions_df <-
   interactions_by_origin_df %>% 
@@ -1121,6 +1127,14 @@ origin_interactions_df <-
     reflected_origin_interactions_df
   )
 
+boundaries_df <-
+  tibble(
+    "Variant" = rep(c("RMV7[domi]","RMV7[rare]","RMV8[domi]","RMV8[rare]"),times = 2),
+    "Method" = rep(c("Hi-C","Pore-C"),each = 4),
+    #"Origin" = rep(c(rmv7_position_of_origin/1000000,rmv7_position_of_origin/1000000,0,0),times = 2)
+    "Boundary" = rep(c(-37871,-37871,-15000,-15000),times = 2)
+  )
+
 (origin_interaction_summary_plot <-
   ggplot(origin_interactions_df,
          aes(xmin = start1,
@@ -1137,6 +1151,8 @@ origin_interactions_df <-
     facet_grid(Method~Variant,
                labeller = label_parsed) +
     guides(fill = guide_colourbar(keywidth = 10,title = "Interaction frequency")) +
+    geom_hline(data = boundaries_df, aes(yintercept = Boundary), linetype = 2, colour = "white") +
+    geom_vline(data = boundaries_df, aes(xintercept = Boundary), linetype = 2, colour = "white") +
     theme_bw() +
     theme(strip.background = element_blank(),
           panel.grid.major = element_blank(),
@@ -1285,23 +1301,52 @@ normalised.rmv7.data.y <- estimateDisp(normalised.rmv7.data.y,
 
 ```{r Plot heatmap of RMV7 Pore-C samples}
 
+library(shipunov)
+
+make_dendro <- function(d_obj) {
+  plot(d_obj$hclust, axes = F, main = NULL, sub = FALSE, ann = FALSE, hang = -1)
+  Bclabels(d_obj$hclust, d_obj$values, percent = TRUE, pos = 1, offset = 0.5)
+}
+
 make_heatmap <- function(y) {
   
   cpm_df <-
     cpm(y, prior.count = 0.01)
   
-  cpm_df <- cpm_df[rev(order(rowMeans(cpm_df))),]
+  #cpm_df <- cpm_df[rev(order(rowMeans(cpm_df))),]
   
   max_samples <- min(c(10000,nrow(cpm_df)))
   
-  heatmap(cpm_df[1:max_samples,])
+  # Calculate cell order
+  bootstrapped_hclust<-Bclust(t(cpm_df[1:max_samples,]))
+  row_order = hclust(dist(cpm_df[1:max_samples,]))$order
+  col_order = bootstrapped_hclust$hclust$order
+  
+  # Combined plot
+  cowplot::plot_grid(plotlist = list(as.ggplot(function() make_dendro(bootstrapped_hclust))+
+                                                theme(plot.margin = unit(c(0,0,0,0), "cm")),
+                                     cowplot::plot_grid(plotlist = list(
+                                       NULL,
+                                       as.ggplot(function() heatmap(cpm_df[1:max_samples,col_order],
+                                                          Colv=NA,
+                                                          Rowv=NA,
+                                                          scale="none",
+                                                          labRow = "",
+                                                          labCol = "",
+                                                          margins = c(0,0)))
+                                       ),
+                                       rel_widths = c(0.05,1)
+                                     )
+                                  ),
+                     nrow = 2,
+                     align = "v",
+                     rel_heights = c(0.35,0.65)
+                     )
   
 }
 
 (rmv7_porec_diffhic_heatmap <-
-  as.ggplot(
-    ~make_heatmap(normalised.rmv7.data.y)
-  )
+    make_heatmap(normalised.rmv7.data.y)
 )
 
 ```
@@ -1491,9 +1536,7 @@ normalised.rmv7.hic.data.y <- estimateDisp(normalised.rmv7.hic.data.y,
 ```{r Plot heatmap of RMV7 Hi-C samples}
 
 (rmv7_hic_diffhic_heatmap <-
-  as.ggplot(
-    ~make_heatmap(normalised.rmv7.hic.data.y)
-  )
+    make_heatmap(normalised.rmv7.hic.data.y)
 )
 
 ```
@@ -1934,9 +1977,7 @@ normalised.rmv8.data.y <- estimateDisp(normalised.rmv8.data.y,
 ```{r Plot heatmap of samples, RMV8 pore-C}
 
 (rmv8_porec_diffhic_heatmap <-
-  as.ggplot(
-    ~make_heatmap(normalised.rmv8.data.y)
-  )
+    make_heatmap(normalised.rmv8.data.y)
 )
 
 ```
@@ -2114,9 +2155,7 @@ normalised.rmv8.hic.data.y <- estimateDisp(normalised.rmv8.hic.data.y,
 ```{r Plot heatmap of samples, RMV8 Hi-C}
 
 (rmv8_hic_diffhic_heatmap <-
-  as.ggplot(
-    ~make_heatmap(normalised.rmv8.hic.data.y)
-  )
+   make_heatmap(normalised.rmv8.hic.data.y)
 )
 
 ```
@@ -4904,13 +4943,15 @@ d_width <- 0.75
 
 condition_vector <- c("No supplement","CSP","Mitomycin C")
 
+genotype_list <- c("RMV8[domi]","RMV8[rare]","RMV7[domi]","RMV7[rare]","RMV8[domi]~italic(tvr)*'::'*italic(cat)","RMV8[rare]~italic(tvr)*'::'*italic(cat)")
+
 legend_df <-
   tibble::tibble(
     "x" = 1,
     "y" = 1,
     "Condition" = factor(rep(condition_vector,2),levels = condition_vector),
     "Biological replicate" = factor(rep(1:3,each=2)),
-    "Genotype" = c("RMV8[domi]","RMV8[rare]","RMV7[domi]","RMV7[rare]","RMV8[domi]~italic(tvr)*'::'*italic(cat)","RMV8[rare]~italic(tvr)*'::'*italic(cat)")
+    "Genotype" = factor(genotype_list, levels = genotype_list)
   )
 
 primer_summary_plot <-
@@ -5517,13 +5558,14 @@ get_growth_legend <- function(plot) {
   g <- guide_legend(ncol = 1)
   
   pl <-
-    cowplot::get_plot_component(plot  + theme(legend.position = "right") + guides(fill = g,
-                                                                                  colour = g),
-                            'guide-box-right',
+    cowplot::get_plot_component(plot  + theme(legend.position = "left",
+                                              legend.justification.left = "left") +
+                                  guides(fill = g, colour = g),
+                            'guide-box-left',
                             return_all = TRUE)
   
   return(list(plot + theme(legend.position = "none") ,pl))
-  
+
 }
 
 cowplot::plot_grid(
